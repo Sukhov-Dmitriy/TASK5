@@ -58,16 +58,20 @@ public:
     settings(ifstream &input){
         string c;
         input>>c;
+        double qa;
         for(int i =0; i<3; i++){
-            input>>cam[i];
+            input>>qa;
+            cam.push_back(qa);
         }
         input>>c;
         for(int i =0; i<3; i++){
-            input>>target[i];
+            input>>qa;
+            target.push_back(qa);
         }
         input>>c;
         for(int i =0; i<3; i++){
-            input>>up[i];
+            input>>qa;
+            up.push_back(qa);
         }
         input>>screen;
         input>>c;
@@ -79,42 +83,62 @@ public:
         input>>c;
         input>>height;
     }
-    double cam[3];
-    double target[3];
-    double up[3];
+    vector<double> cam;
+    vector<double> target;
+    vector<double> up;
     double screen;
     double limit;
     double alpha;
     double wight;
     double height;
 };
+
 class Figure {
 public:
     string type;
+    int numtype;
     double data[12];
-    virtual void sortv();
+    virtual void sortv(){}
+    virtual bool belong(vector<double> &point);
+    Figure();
 };
 
 class sphere : public Figure{
 public:
-    int numdat = 4;
-    int numtype = 1;
-    bool belong(vector<double> &point){
-    if(pow((point[0]-data[0]),2)+pow((point[1]-data[1]),2)+pow((point[2]-data[2]),2)-pow(data[4],2)<EPS)
-    {
-        return true;
+    sphere(const sphere &other){
+        this->numdat = other.numdat;
     }
-    else
-    {
-        return false;
+    sphere():Figure(){
+    numdat = 1777;
     }
+    void sortv() override
+    {numdat = 1777;}
+    int numdat;
+    bool belong(vector<double> &point) override
+    {
+        if(pow((point[0]-data[0]),2)+pow((point[1]-data[1]),2)+pow((point[2]-data[2]),2)-pow(data[4],2)<EPS)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 };
 class box : public Figure{
 public:
-    int numdat = 6;
-    int numtype = 2;
-    bool belong(vector<double> &point){
+    box(const box &other){
+        this->numdat = other.numdat;
+    }
+    box(){
+    numdat = 1777;
+    }
+    void sortv() override
+    {numdat = 1777;}
+    int numdat;
+    bool belong(vector<double> &point) override
+    {
         if((data[0]+point[0] < data[3]) && (data[1]+point[1] < data[4]) && (data[2]+point[2] < data[5])){
             return true;
         }
@@ -127,13 +151,19 @@ public:
 };
 class tetra : public Figure{
 public:
-    int numdat = 12;
-    int numtype = 3;
+    tetra(const tetra &other){
+        this->numdat = other.numdat;
+    }
+    tetra()
+    {
+        numdat = 12;
+    }
+    int numdat;
     vector<double> v1;
     vector<double> v2;
     vector<double> v3;
     vector<double> v4;
-    void sortv()
+    void sortv() override
     {
         for(int i = 0;i < 3; i++)
         {
@@ -159,7 +189,8 @@ public:
             v1 = t;
         }
     }
-    bool belong(vector<double>& point){
+    bool belong(vector<double>& point) override
+    {
         double q1;
         double q2;
         double q3;
@@ -210,17 +241,20 @@ Figure *CreateData(ifstream &input, map<string,FigureFactory*>  f){
         for(int j = 0; j < 12; j++){
             input >> fig->data[j];
         }
+        fig->numtype = 3;
         fig->sortv();
     }
     if(I == "box"){
         for(int j = 0; j < 6; j++){
             input >>fig->data[j];
         }
+        fig->numtype = 2;
     }
     if(I == "sphere"){
         for(int j = 0; j < 4; j++){
             input >>fig->data[j];
         }
+        fig->numtype = 1;
     }
     fig->type = I;
     return fig;
@@ -234,17 +268,24 @@ int check_f(ifstream &fl){
     return 0;
 }
 
-int colorfig(vector<double> &targ, vector<*Figure> arr, settings *sett)
+int colorfig(vector<double> &targ, vector<Figure*> &arr, settings *sett)
 {
     int i = 0;
-    double kof = (((sin((sett->alpha)/2)/cos((sett->alpha)/2))*sett->screen)/sett->wight)/2;
-    while(norma(scapower(targ,kof*i))<(sett->limit/cos(sett->alpha/2)))
+    bool toto;
+    double kof = (((sin((sett->alpha)/2)/cos((sett->alpha)/2))*sett->screen)/sett->wight);
+    double ntarg = norma(scapower(targ,1.0/norma(targ)));
+    while((ntarg*kof*i)<(sett->limit/cos(sett->alpha/2)))
     {
         for(int j  = 0; j < arr.size(); j++)
         {
-            if(arr[j].belong(plusp(sett->cam,scapower(targ,kof*i))))
+            vector<double> sca;
+            vector<double> pl;
+            sca = scapower(targ,ntarg*kof*i);
+            pl = plusp(sett->cam,sca);
+            toto = arr[j]->belong(pl);
+            if(toto)
                {
-                   return arr[j].numtype;
+                   return arr[j]->numtype;
                }
         }
         i++;
@@ -285,7 +326,7 @@ int main (){
 
     settings sett(FileS);
     FileS.close();
-    cimg_library::CImg<unsigned char> img(sett.wight,sett.height,1,3);
+    //cimg_library::CImg<unsigned char> img(sett.wight,sett.height,1,3);
 
 
     //закрытие/очищение
