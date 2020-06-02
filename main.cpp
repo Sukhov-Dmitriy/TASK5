@@ -6,7 +6,7 @@
 #include <map>
 #include <cmath>
 #include <omp.h>
-//#include "CImg.h"
+#include "CImg.h"
 using namespace std;
 vector<double> scapower(vector<double> &A, double a)
 {
@@ -73,6 +73,7 @@ public:
             input>>qa;
             up.push_back(qa);
         }
+        input>>c;
         input>>screen;
         input>>c;
         input>>limit;
@@ -93,22 +94,22 @@ public:
     double height;
 };
 
-class Figure {
+class FFigure {
 public:
     string type;
-    int numtype;
+    float numtype;
     double data[12];
-    virtual void sortv(){}
-    virtual bool belong(vector<double> &point);
-    Figure();
+    virtual void sortv()=0;
+    virtual bool belong(vector<double> &point) = 0;
+
 };
 
-class sphere : public Figure{
+class sphere : public FFigure{
 public:
     sphere(const sphere &other){
         this->numdat = other.numdat;
     }
-    sphere():Figure(){
+    sphere(){
     numdat = 1777;
     }
     void sortv() override
@@ -126,7 +127,7 @@ public:
         }
     }
 };
-class box : public Figure{
+class box : public FFigure{
 public:
     box(const box &other){
         this->numdat = other.numdat;
@@ -149,7 +150,7 @@ public:
     }
 
 };
-class tetra : public Figure{
+class tetra : public FFigure{
 public:
     tetra(const tetra &other){
         this->numdat = other.numdat;
@@ -200,7 +201,10 @@ public:
         q3 = scamultip(vecmultip(minusp(v2,v1),minusp(v4,v1)),minusp(point,v1));
         q4 = scamultip(vecmultip(minusp(v2,v4),minusp(v3,v4)),minusp(point,v4));
         if(q1 > 0 && q2 > 0 && q3 > 0 && q4 > 0)
+        {
+            cout<<"Belonges\n";
             return true;
+        }
         else
             return false;
     }
@@ -208,33 +212,33 @@ public:
 };
 class FigureFactory {
 public:
-    virtual Figure* create_dat()=0;
+    virtual FFigure* create_dat()=0;
     virtual ~FigureFactory(){}
 };
 class FigureFactoryS : public FigureFactory{
 public:
-    Figure* create_dat()
+    FFigure* create_dat()
     {
         return new sphere();
     }
 };
 class FigureFactoryB : public FigureFactory{
 public:
-    Figure* create_dat()
+    FFigure* create_dat()
     {
         return new box();
     }
 };
 class FigureFactoryT : public FigureFactory{
 public:
-    Figure* create_dat()
+    FFigure* create_dat()
     {
         return new tetra();
     }
 };
-Figure *CreateData(ifstream &input, map<string,FigureFactory*>  f){
+FFigure *CreateData(ifstream &input, map<string,FigureFactory*>  f){
     string I;
-    Figure *fig = NULL;
+    FFigure *fig = NULL;
     input >> I;
     fig = f[I]->create_dat();
     if(I == "tetra"){
@@ -268,38 +272,113 @@ int check_f(ifstream &fl){
     return 0;
 }
 
-int colorfig(vector<double> &targ, vector<Figure*> &arr, settings *sett)
+float colorfig(vector<double> &targ, vector<FFigure*> &arr, settings *sett)
 {
     int i = 0;
+    float grad;
     bool toto;
-    double kof = (((sin((sett->alpha)/2)/cos((sett->alpha)/2))*sett->screen)/sett->wight);
+    double kof = 4*(((sin((sett->alpha)/2)/cos((sett->alpha)/2))*(sett->screen))/sett->wight);
     double ntarg = norma(scapower(targ,1.0/norma(targ)));
     while((ntarg*kof*i)<(sett->limit/cos(sett->alpha/2)))
     {
         for(int j  = 0; j < arr.size(); j++)
-        {
+        {   cout<<"ddddd\n";
             vector<double> sca;
             vector<double> pl;
             sca = scapower(targ,ntarg*kof*i);
             pl = plusp(sett->cam,sca);
             toto = arr[j]->belong(pl);
             if(toto)
-               {
-                   return arr[j]->numtype;
+               {   cout<< "DAAAAAAAA\n";
+                   grad = ((ntarg*kof*i)/(sett->limit/cos(sett->alpha/2))-0.01);
+                   grad = round(grad*100)/100;
+                   return (arr[j]->numtype+grad);
                }
         }
         i++;
     }
     return 0;
 }
+void render(settings *sett, vector<FFigure*> &arr)
+{
+    vector<double> gorisont;
+    vector<double> Ngorisont;
+    vector<double> Nup;
+    vector<double> maintarget;
+    vector<double> targ;
+    float grad;
+    float* adad = new float(0);
+    float color[3] = {250, 250, 0};
+    cimg_library::CImg<unsigned char> img(sett->wight,sett->height,1,3);
+    cout<<"ddddddd\n";
+    float colorP;
+    targ = minusp(sett->target,sett->cam);
+
+    gorisont = vecmultip(sett->up, targ);
+    gorisont = scapower(gorisont,1/norma(gorisont));
+    gorisont = scapower(gorisont,(sin((sett->alpha)/2)/cos((sett->alpha)/2))*(sett->screen));
+    sett->up = scapower(sett->up, (1/ norma(sett->up)));
+    sett->up = scapower(sett->up,(sett->height/sett->wight)*(sin((sett->alpha)/2)/cos((sett->alpha)/2))*(sett->screen));
+    for(int i = (sett->wight/2); i < -(sett->wight/2); i--)
+    {   cout<<"ddddddd\n";
+        Ngorisont = scapower(gorisont,i/(sett->wight/2));
+        for(int j = (sett->height/2); j < -(sett->height/2); j--)
+        {
+                Nup = scapower(sett->up,j/(sett->height/2));
+                maintarget = plusp(targ,Ngorisont);
+                maintarget = plusp(maintarget,Nup);
+                colorP = colorfig(maintarget,arr,sett);
+                grad = modf(colorP,adad);
+                grad = grad*100;
+                if((int)colorP != 0){
+                color[0] =0;
+                color[1] =0;
+                color[2] = 0;
+                color[(int)colorP-1] = 255 - (int)grad;
+                }
+                img.draw_point(i, j, color);
+        }
+    }
+    img.display("1222");
+}
+void autotest1 (){
+    tetra prt;
+    cout<<"autotest1 ...\n";
+    vector<double> point;
+    point.push_back(0.2);
+    point.push_back(0.0);
+    point.push_back(0.3);
+    prt.data;
+    prt.data[0] = 1.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = 1.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = -1.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = 0.0;
+    prt.data[0] = 1.0;
+    prt.numtype = 3;
+    prt.sortv();
+    if(prt.belong(point))
+    {
+        cout<<"autotest1 passed succesfuly\n";
+    }
+
+}
 int main (){
     char c;
     int n = 1;
+
 
     string filedat("figures.txt");//передачи названия файла
     string fileset("settings.txt");
     ifstream FileD(filedat.c_str());//c_str //Открытие файла
     ifstream FileS(fileset.c_str());
+    cout<<"zopa\n";
     if(check_f(FileD)==-1){
         return -1;
     }
@@ -318,7 +397,7 @@ int main (){
     FigureFactory* fabB = new FigureFactoryB;
     FigureFactory* fabT = new FigureFactoryT;
     map<string,FigureFactory*> f = {{"sphere",fabS},{"box",fabB},{"tetra",fabT}};
-    vector<Figure*> arr;// вектор для фигур
+    vector<FFigure*> arr;// вектор для фигур
     for(int i = 0; i < n; i++){// получение всех данных из файла
         arr.push_back(CreateData(FileD, f));
     }
@@ -326,8 +405,29 @@ int main (){
 
     settings sett(FileS);
     FileS.close();
-    //cimg_library::CImg<unsigned char> img(sett.wight,sett.height,1,3);
+    autotest1();
 
+        for(int i =0; i<3; i++){
+            cout<<sett.cam[i]<<endl;
+        }
+        for(int i =0; i<6; i++){
+            cout<<"aeeee"<<arr[0]->data[i]<<endl;
+        }
+        for(int i =0; i<3; i++){
+            cout<<sett.target[i]<<endl;
+        }
+        for(int i =0; i<3; i++){
+            cout<<sett.up[i]<<endl;
+        }
+        cout<<sett.screen<<endl;
+        cout<<sett.limit<<endl;
+        cout<<sett.alpha<<endl;
+        cout<<sett.wight<<endl;
+        cout<<sett.height<<endl;
+
+
+
+   render(&sett,arr);
 
     //закрытие/очищение
     for(int i = 0; i < n; i++){
