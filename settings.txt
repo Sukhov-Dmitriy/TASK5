@@ -1,0 +1,8 @@
+cam 5.0 0.0 0.5
+target 3.0 0.0 0.0
+up 0.0 0.0 1.0
+screen 5.0
+limit 7.5
+alpha 90.0
+wight 2000.0
+hight 1000.0
